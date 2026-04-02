@@ -19,7 +19,22 @@ import papermill as pm
 # ─────────────────────────────────────────────────────────────────────────────
 #  SETTINGS  —  set this to your top-level data directory
 # ─────────────────────────────────────────────────────────────────────────────
-DATA_ROOT     = os.path.join(os.path.expanduser("~"), "Desktop")
+# Auto-detect a sensible starting data root across machines:
+#   Windows: C:/Users/Backup  →  C:/Users  →  home dir
+#   Mac:     ~/Desktop  →  home dir
+def _detect_data_root():
+    candidates = [
+        "C:/Users/Backup",
+        "C:/Users",
+        os.path.join(os.path.expanduser("~"), "Desktop"),
+        os.path.expanduser("~"),
+    ]
+    for path in candidates:
+        if os.path.isdir(path):
+            return path
+    return os.path.expanduser("~")
+
+DATA_ROOT = _detect_data_root()
 NOTEBOOK_PATH = os.path.join(os.path.dirname(__file__), "keyence_10x_cellpose_notebook_multi_conditions.ipynb")
 EXECUTED_NB_NAME = "keyence_10x_cellpose_notebook_multi_executed.ipynb"
 
