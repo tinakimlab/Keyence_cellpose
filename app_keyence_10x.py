@@ -5,7 +5,7 @@ Streamlit + papermill web interface for keyence_10x_cellpose_notebook_multi_cond
 
 Usage:
     conda activate cellpose
-    streamlit run app_keyence_10x.py
+    streamlit run app_multi.py
 """
 
 import os
@@ -63,18 +63,50 @@ def label_to_key(label, idx):
 
 
 def folder_browser(label, key_prefix, root):
-    """Text-input folder picker. Returns path string if valid, else None."""
-    state_key = f"{key_prefix}_text"
+    """Cascading drill-down folder picker. Returns confirmed path or None."""
+    st.markdown(f"**{label}**")
+    state_key   = f"{key_prefix}_path"
+    confirm_key = f"{key_prefix}_confirmed"
+
     if state_key not in st.session_state:
         st.session_state[state_key] = root
+    if confirm_key not in st.session_state:
+        st.session_state[confirm_key] = None
 
-    path = st.text_input(label, value=st.session_state[state_key], key=state_key)
+    current = st.session_state[state_key]
+    rel = os.path.relpath(current, root)
+    breadcrumb = "📁 " + (" / ".join(rel.split(os.sep)) if rel != "." else "(top level)")
+    st.caption(breadcrumb)
 
-    if path and os.path.isdir(path):
-        return path
-    elif path:
-        st.warning("Path not found — check the folder path.")
-    return None
+    children = immediate_subfolders(current)
+    if children:
+        choice = st.selectbox("Select subfolder", ["— stay here —"] + children,
+                              key=f"{key_prefix}_select")
+        if choice != "— stay here —":
+            new_path = os.path.join(current, choice)
+            if new_path != st.session_state[state_key]:
+                st.session_state[state_key] = new_path
+                st.session_state[confirm_key] = None
+                st.rerun()
+    else:
+        st.caption("_(no subfolders — this is a leaf folder)_")
+
+    col_up, col_confirm = st.columns(2)
+    with col_up:
+        at_root = os.path.abspath(current) == os.path.abspath(root)
+        if st.button("⬆ Up", key=f"{key_prefix}_up", disabled=at_root):
+            st.session_state[state_key] = os.path.dirname(current)
+            st.session_state[confirm_key] = None
+            st.rerun()
+    with col_confirm:
+        if st.button("✓ Select this folder", key=f"{key_prefix}_confirm", type="primary"):
+            st.session_state[confirm_key] = current
+            st.rerun()
+
+    confirmed = st.session_state[confirm_key]
+    if confirmed:
+        st.success(os.path.relpath(confirmed, root))
+    return confirmed
 
 
 def find_overlay_pngs(roots):
