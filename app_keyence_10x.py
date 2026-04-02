@@ -24,6 +24,8 @@ import papermill as pm
 #   Mac:     ~/Desktop  →  home dir
 def _detect_data_root():
     candidates = [
+        "C:/Backup/Keyence",
+        "C:/Backup",
         "C:/Users/Backup",
         "C:/Users",
         os.path.join(os.path.expanduser("~"), "Desktop"),
