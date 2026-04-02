@@ -19,7 +19,7 @@ import papermill as pm
 # ─────────────────────────────────────────────────────────────────────────────
 #  SETTINGS  —  set this to your top-level data directory
 # ─────────────────────────────────────────────────────────────────────────────
-DATA_ROOT     = "/Users/ckk/Desktop/Cellpose_ClaudeAgent/Data"
+DATA_ROOT     = os.path.join(os.path.expanduser("~"), "Desktop")
 NOTEBOOK_PATH = os.path.join(os.path.dirname(__file__), "keyence_10x_cellpose_notebook_multi_conditions.ipynb")
 EXECUTED_NB_NAME = "keyence_10x_cellpose_notebook_multi_executed.ipynb"
 
