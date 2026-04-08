@@ -79,10 +79,14 @@ def folder_browser(label, key_prefix, root):
 
     path = st.text_input(label, value=st.session_state[state_key], key=state_key)
 
-    # Normalize: strip whitespace and convert backslashes so pasted Windows
-    # paths (e.g. from File Explorer) are accepted without modification.
+    # Normalize: strip whitespace, remove surrounding quotes, and convert backslashes
+    # so pasted Windows paths (e.g. from File Explorer) are accepted without modification.
     if path:
-        path = path.strip().replace("\\", "/")
+        path = path.strip()
+        # Remove surrounding quotes (both single and double)
+        if (path.startswith('"') and path.endswith('"')) or (path.startswith("'") and path.endswith("'")):
+            path = path[1:-1]
+        path = path.replace("\\", "/")
 
     if path and os.path.isdir(path):
         return path
