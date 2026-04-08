@@ -23,18 +23,27 @@ import papermill as pm
 #   Windows: C:/Users/Backup  →  C:/Users  →  home dir
 #   Mac:     ~/Desktop  →  home dir
 def _detect_data_root():
-    candidates = [
+    home = os.path.expanduser("~")
+    # Look for any OneDrive folder under the user's home (handles variant domain names)
+    onedrive_candidates = []
+    try:
+        for name in os.listdir(home):
+            if name.lower().startswith("onedrive") and os.path.isdir(os.path.join(home, name)):
+                onedrive_candidates.append(os.path.join(home, name))
+    except PermissionError:
+        pass
+
+    candidates = onedrive_candidates + [
         "C:/Backup/Keyence",
         "C:/Backup",
         "C:/Users/Backup",
-        "C:/Users",
-        os.path.join(os.path.expanduser("~"), "Desktop"),
-        os.path.expanduser("~"),
+        os.path.join(home, "Desktop"),
+        home,
     ]
     for path in candidates:
         if os.path.isdir(path):
             return path
-    return os.path.expanduser("~")
+    return home
 
 DATA_ROOT = _detect_data_root()
 NOTEBOOK_PATH = os.path.join(os.path.dirname(__file__), "keyence_10x_cellpose_notebook_multi_conditions.ipynb")
@@ -69,6 +78,11 @@ def folder_browser(label, key_prefix, root):
         st.session_state[state_key] = root
 
     path = st.text_input(label, value=st.session_state[state_key], key=state_key)
+
+    # Normalize: strip whitespace and convert backslashes so pasted Windows
+    # paths (e.g. from File Explorer) are accepted without modification.
+    if path:
+        path = path.strip().replace("\\", "/")
 
     if path and os.path.isdir(path):
         return path
@@ -322,6 +336,41 @@ if display_save_dir and os.path.isdir(display_save_dir):
                     with open(fpath, "rb") as f:
                         st.download_button(f"Download {name} (PDF)", f,
                                            os.path.basename(fpath), "application/pdf")
+
+    # ── Field-of-view average chart ───────────────────────────────────────────
+    _excel_path = os.path.join(display_save_dir, "cellpose_results.xlsx")
+    if os.path.exists(_excel_path):
+        import pandas as _pd
+        import matplotlib.pyplot as _plt
+        import matplotlib.cm as _cm
+        import numpy as _np
+
+        df_fov = _pd.read_excel(_excel_path, sheet_name="per_image")
+        st.header("Field-of-View Averages")
+
+        conditions = df_fov["condition"].unique()
+        colors = _cm.tab10.colors
+        fov_names = df_fov["image_file"].unique()
+        short_names = [os.path.splitext(os.path.basename(f))[0] for f in fov_names]
+        x = _np.arange(len(fov_names))
+        width = 0.8 / max(len(conditions), 1)
+
+        fig, ax = _plt.subplots(figsize=(max(8, len(fov_names) * 0.5 * len(conditions)), 4))
+        for ci, cond in enumerate(conditions):
+            sub = df_fov[df_fov["condition"] == cond].set_index("image_file")
+            vals = [sub.loc[f, "mean_cellF_ratio"] if f in sub.index else float("nan")
+                    for f in fov_names]
+            ax.bar(x + ci * width, vals, width, label=cond,
+                   color=colors[ci % len(colors)], alpha=0.85)
+
+        ax.set_xticks(x + width * (len(conditions) - 1) / 2)
+        ax.set_xticklabels(short_names, rotation=45, ha="right", fontsize=7)
+        ax.set_ylabel("Mean signal/reference ratio")
+        ax.set_title("Mean cellF ratio per field of view")
+        ax.legend()
+        _plt.tight_layout()
+        st.pyplot(fig)
+        _plt.close(fig)
 
     # ── Cell mask overlays — grouped by condition ─────────────────────────────
     st.header("Cell Mask Overlays")
